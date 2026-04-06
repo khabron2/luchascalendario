@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-[#0a0a0a] text-white antialiased;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar, .custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track, .custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb, .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover, .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* TV Navigation Focus Styles */
+:focus {
+  outline: none;
+}
+
+.focus-ring {
+  @apply ring-4 ring-rose-600 ring-offset-4 ring-offset-black scale-105 transition-all duration-300;
+}
+
+/* Calendar Grid Transitions */
+.calendar-day {
+  transition: background-color 0.2s ease;
+}
+
+/* Modal Backdrop Blur */
+.backdrop-blur-xl {
+  backdrop-filter: blur(24px);
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Lucha Libre Calendar TV",
+  "description": "Una aplicación tipo calendario para seguir eventos de lucha libre con diseño tipo Netflix y soporte PWA.",
+  "requestFramePermissions": []
+}
