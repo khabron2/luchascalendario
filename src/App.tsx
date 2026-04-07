@@ -108,16 +108,67 @@ const EventCard: React.FC<{ event: LuchaEvent, onClick: () => void, isFocused?: 
 );
 
 const VideoModal = ({ event, onClose }: { event: LuchaEvent, onClose: () => void }) => {
-  // Simple YouTube embed logic
+  const [showIframe, setShowIframe] = useState(!event.video_url.includes('voe.sx'));
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+
+  const isDirectVideo = (url: string) => {
+    if (url.includes('voe.sx')) return false;
+    return url.match(/\.(mp4|webm|ogg|m4v)$|googlevideo\.com/i);
+  };
+
   const getEmbedUrl = (url: string) => {
-    if (url.includes('youtube.com/watch?v=')) {
-      return url.replace('watch?v=', 'embed/');
-    }
-    if (url.includes('youtu.be/')) {
-      return url.replace('youtu.be/', 'youtube.com/embed/');
+    if (!url) return "";
+    try {
+      // Clean URL
+      const cleanUrl = url.trim();
+      const urlObj = new URL(cleanUrl);
+      
+      // YouTube
+      if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
+        let videoId = "";
+        if (cleanUrl.includes('watch?v=')) {
+          videoId = urlObj.searchParams.get('v') || "";
+        } else if (cleanUrl.includes('youtu.be/')) {
+          videoId = urlObj.pathname.split('/').filter(Boolean).pop() || "";
+        } else if (cleanUrl.includes('embed/')) {
+          return cleanUrl;
+        }
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+      }
+      
+      // Voe.sx
+      if (cleanUrl.includes('voe.sx')) {
+        if (cleanUrl.includes('/e/')) return cleanUrl;
+        const code = urlObj.pathname.split('/').filter(Boolean).pop();
+        return `https://voe.sx/e/${code}`;
+      }
+
+      // Dailymotion
+      if (cleanUrl.includes('dailymotion.com') || cleanUrl.includes('dai.ly')) {
+        let videoId = "";
+        if (cleanUrl.includes('/video/')) {
+          videoId = urlObj.pathname.split('/video/')[1].split('_')[0];
+        } else if (cleanUrl.includes('dai.ly/')) {
+          videoId = urlObj.pathname.split('/').filter(Boolean).pop() || "";
+        }
+        return `https://www.dailymotion.com/embed/video/${videoId}?autoplay=1`;
+      }
+
+      // OK.ru
+      if (cleanUrl.includes('ok.ru')) {
+        const id = urlObj.pathname.split('/').filter(Boolean).pop();
+        return `https://ok.ru/videoembed/${id}?autoplay=1`;
+      }
+
+    } catch (e) {
+      console.error("Error parsing video URL:", e);
     }
     return url;
   };
+
+  const videoUrl = getEmbedUrl(event.video_url);
+  const useNative = isDirectVideo(event.video_url);
+  const hasUrl = event.video_url && event.video_url.trim() !== "";
 
   return (
     <motion.div 
@@ -128,20 +179,71 @@ const VideoModal = ({ event, onClose }: { event: LuchaEvent, onClose: () => void
     >
       <button 
         onClick={onClose}
-        className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white transition-colors z-50"
+        className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white transition-colors z-50 bg-black/50 rounded-full"
       >
         <X size={32} />
       </button>
 
       <div className="w-full max-w-6xl flex flex-col gap-6">
-        <div className="aspect-video w-full bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800">
-          <iframe
-            src={getEmbedUrl(event.video_url)}
-            className="w-full h-full"
-            allowFullScreen
-            title={event.nombre}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          />
+        <div className="aspect-video w-full bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 relative">
+          {/* Loading Spinner for Iframe */}
+          {showIframe && isIframeLoading && !useNative && hasUrl && (
+            <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-10">
+              <Loader2 className="w-12 h-12 text-rose-600 animate-spin" />
+            </div>
+          )}
+
+          {!hasUrl ? (
+             <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 p-6 text-center">
+                <Info size={64} className="text-zinc-600 mb-4" />
+                <h3 className="text-2xl font-bold text-white mb-2">Link no disponible</h3>
+                <p className="text-zinc-500">Este evento aún no tiene un link de video cargado.</p>
+             </div>
+          ) : !showIframe && event.video_url.includes('voe.sx') ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950 p-6 text-center">
+              <div className="bg-rose-600/20 p-6 rounded-full mb-8 animate-pulse">
+                <Play size={64} className="text-rose-500 fill-current" />
+              </div>
+              <h3 className="text-3xl md:text-4xl font-black text-white mb-4">Reproductor Voe.sx</h3>
+              <p className="text-zinc-400 max-w-md mb-10 text-xl leading-relaxed">
+                El reproductor de Voe.sx puede ser lento o mostrar publicidad. Elige cómo quieres verlo:
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button 
+                  onClick={() => window.open(event.video_url, '_blank')}
+                  className="group flex items-center gap-4 bg-white text-black px-8 py-4 rounded-xl font-black text-xl hover:bg-rose-600 hover:text-white transition-all active:scale-95 shadow-xl"
+                >
+                  <ExternalLink size={24} /> ABRIR EN NAVEGADOR
+                </button>
+                <button 
+                  onClick={() => setShowIframe(true)}
+                  className="group flex items-center gap-4 bg-zinc-800 text-white px-8 py-4 rounded-xl font-black text-xl hover:bg-zinc-700 transition-all active:scale-95"
+                >
+                  <Tv size={24} /> CARGAR AQUÍ
+                </button>
+              </div>
+            </div>
+          ) : useNative ? (
+            <video 
+              src={event.video_url} 
+              controls 
+              autoPlay 
+              className="w-full h-full"
+              poster={obtenerImagen(event)}
+            />
+          ) : (
+            showIframe && (
+              <iframe
+                src={videoUrl}
+                className="w-full h-full"
+                allowFullScreen
+                title={event.nombre}
+                onLoad={() => setIsIframeLoading(false)}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="no-referrer"
+              />
+            )
+          )}
         </div>
         
         <div className="space-y-4">
@@ -156,15 +258,28 @@ const VideoModal = ({ event, onClose }: { event: LuchaEvent, onClose: () => void
           <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight">
             {event.nombre}
           </h2>
-          <p className="text-zinc-400 text-lg max-w-3xl leading-relaxed">
-            {event.descripcion}
-          </p>
-          <div className="flex gap-4 pt-4">
-            <button className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-lg font-bold hover:bg-zinc-200 transition-colors">
-              <Play size={20} fill="black" /> Reproducir ahora
-            </button>
-            <button className="flex items-center gap-2 bg-zinc-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-zinc-700 transition-colors">
-              <Info size={20} /> Más información
+          <div className="flex flex-wrap gap-4 pt-4">
+            {hasUrl && (
+              <button 
+                onClick={() => window.open(event.video_url, '_blank')}
+                className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-black hover:bg-zinc-200 transition-all active:scale-95 text-lg shadow-xl shadow-white/10"
+              >
+                <ExternalLink size={24} /> Abrir en origen
+              </button>
+            )}
+            {!showIframe && hasUrl && (
+               <button 
+                onClick={() => setShowIframe(true)}
+                className="flex items-center gap-2 bg-zinc-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-zinc-700 transition-all active:scale-95"
+              >
+                <Tv size={24} /> Cargar reproductor
+              </button>
+            )}
+            <button 
+              onClick={onClose}
+              className="flex items-center gap-2 bg-zinc-900 text-zinc-400 px-6 py-3 rounded-xl font-bold hover:bg-zinc-800 transition-all"
+            >
+              Cerrar
             </button>
           </div>
         </div>
@@ -284,7 +399,7 @@ const AddEventModal = ({ onClose, onAdd }: { onClose: () => void, onAdd: (e: Luc
             <input 
               type="url" 
               required
-              placeholder="YouTube, Dailymotion, etc."
+              placeholder="YouTube, Voe.sx, o link directo (.mp4)"
               value={formData.video_url}
               onChange={e => setFormData({...formData, video_url: e.target.value})}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 text-white focus:ring-4 focus:ring-rose-500 outline-none text-lg"
@@ -496,9 +611,18 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-12">
         {isLoading && events.length === 0 ? (
-          <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
-            <Loader2 className="w-12 h-12 text-rose-600 animate-spin" />
-            <p className="text-zinc-500 font-medium animate-pulse">Cargando eventos desde Google Sheets...</p>
+          <div className="h-[60vh] flex flex-col items-center justify-center gap-6">
+            <Loader2 className="w-16 h-16 text-rose-600 animate-spin" />
+            <div className="text-center space-y-2">
+              <p className="text-zinc-400 text-xl font-bold animate-pulse">Sincronizando con Google Sheets...</p>
+              <p className="text-zinc-600 text-sm uppercase tracking-widest">Esto puede tardar unos segundos</p>
+            </div>
+            <button 
+              onClick={() => fetchEvents()}
+              className="mt-4 px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all active:scale-95 flex items-center gap-2"
+            >
+              <RefreshCw size={20} /> Reintentar conexión
+            </button>
           </div>
         ) : (
           <>
